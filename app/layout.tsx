@@ -51,19 +51,19 @@ export const metadata: Metadata = {
     type: 'image/png',
     sizes: '180x180',
   }, {
-    url: '/favicons/light.png',
+    url: '/favicons/favicon-32x32.png',
     rel: 'icon',
     media: '(prefers-color-scheme: light)',
     type: 'image/png',
     sizes: '32x32',
   }, {
-    url: '/favicons/dark.png',
+    url: '/favicon/favicon-32x32.png',
     rel: 'icon',
     media: '(prefers-color-scheme: dark)',
     type: 'image/png',
     sizes: '32x32',
   }, {
-    url: '/favicons/apple-touch-icon.png',
+    url: '/favicon/apple-touch-icon.png',
     rel: 'icon',
     type: 'image/png',
     sizes: '180x180',
