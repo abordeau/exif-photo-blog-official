@@ -6,7 +6,7 @@ import {
   PATH_ROOT,
   pathForAdminPhotoEdit,
   pathForTag,
-} from '@/app/paths';
+} from '@/app/path';
 import {
   deletePhotoAction,
   syncPhotoAction,
@@ -21,7 +21,7 @@ import {
 import { isPathFavs, isPhotoFav, TAG_PRIVATE } from '@/tag';
 import { usePathname } from 'next/navigation';
 import { BiTrash } from 'react-icons/bi';
-import MoreMenu from '@/components/more/MoreMenu';
+import MoreMenu, { MoreMenuSection } from '@/components/more/MoreMenu';
 import { useAppState } from '@/app/AppState';
 import { RevalidatePhoto } from '@/photo/InfinitePhotoScroll';
 import { MdOutlineFileDownload } from 'react-icons/md';
@@ -30,7 +30,7 @@ import IconGrSync from '@/components/icons/IconGrSync';
 import InsightsIndicatorDot from './insights/InsightsIndicatorDot';
 import IconFavs from '@/components/icons/IconFavs';
 import IconEdit from '@/components/icons/IconEdit';
-import { photoNeedsToBeSynced } from '@/photo/sync';
+import { photoNeedsToBeUpdated } from '@/photo/update';
 import { KEY_COMMANDS } from '@/photo/key-commands';
 import { useAppText } from '@/i18n/state/client';
 import IconLock from '@/components/icons/IconLock';
@@ -124,7 +124,7 @@ export default function AdminPhotoMenu({
       label: appText.admin.sync,
       labelComplex: <span className="inline-flex items-center gap-2">
         <span>{appText.admin.sync}</span>
-        {photoNeedsToBeSynced(photo) &&
+        {photoNeedsToBeUpdated(photo) &&
           <InsightsIndicatorDot
             colorOverride="blue"
             className="ml-1 translate-y-[1.5px]"
@@ -139,7 +139,7 @@ export default function AdminPhotoMenu({
       ...showKeyCommands && { keyCommand: KEY_COMMANDS.sync },
     });
 
-    return items;
+    return { items };
   }, [
     appText,
     photo,
@@ -151,31 +151,33 @@ export default function AdminPhotoMenu({
     revalidatePhoto,
   ]);
 
-  const sectionDelete: ComponentProps<typeof MoreMenuItem>[] = useMemo(() => [{
-    label: appText.admin.delete,
-    icon: <BiTrash
-      size={15}
-      className="translate-x-[-1px]"
-    />,
-    className: 'text-error *:hover:text-error',
-    color: 'red',
-    action: () => {
-      if (confirm(deleteConfirmationTextForPhoto(photo, appText))) {
-        return deletePhotoAction(
-          photo.id,
-          photo.url,
-          shouldRedirectDelete,
-        ).then(() => {
-          revalidatePhoto?.(photo.id, true);
-          registerAdminUpdate?.();
-        });
-      }
-    },
-    ...showKeyCommands && {
-      keyCommandModifier: KEY_COMMANDS.delete[0],
-      keyCommand: KEY_COMMANDS.delete[1],
-    },
-  }], [
+  const sectionDelete: MoreMenuSection = useMemo(() => ({
+    items: [{
+      label: appText.admin.delete,
+      icon: <BiTrash
+        size={15}
+        className="translate-x-[-1px]"
+      />,
+      className: 'text-error *:hover:text-error',
+      color: 'red',
+      action: () => {
+        if (confirm(deleteConfirmationTextForPhoto(photo, appText))) {
+          return deletePhotoAction(
+            photo.id,
+            photo.url,
+            shouldRedirectDelete,
+          ).then(() => {
+            revalidatePhoto?.(photo.id, true);
+            registerAdminUpdate?.();
+          });
+        }
+      },
+      ...showKeyCommands && {
+        keyCommandModifier: KEY_COMMANDS.delete[0],
+        keyCommand: KEY_COMMANDS.delete[1],
+      },
+    }],
+  }), [
     appText,
     photo,
     showKeyCommands,

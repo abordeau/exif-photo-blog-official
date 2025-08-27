@@ -41,8 +41,8 @@ import PhotoYear from '@/years/PhotoYear';
 import { chunkArray } from '@/utility/array';
 import PhotoRecents from '@/recents/PhotoRecents';
 
-const APPROXIMATE_ITEM_HEIGHT = 36;
-const ABOUT_HEIGHT_OFFSET = 80;
+const APPROXIMATE_ITEM_HEIGHT = 40;
+const ABOUT_HEIGHT_OFFSET = 24;
 
 export default function PhotoGridSidebar({
   photosCount,
@@ -199,34 +199,34 @@ export default function PhotoGridSidebar({
       items={tagsIncludingHidden
         .map(({ tag, count }) => {
           switch (tag) {
-          case TAG_FAVS:
-            return <PhotoFavs
-              key={TAG_FAVS}
-              countOnHover={count}
-              type="icon-last"
-              prefetch={false}
-              contrast="low"
-              badged
-            />;
-          case TAG_PRIVATE:
-            return <PhotoPrivate
-              key={TAG_PRIVATE}
-              countOnHover={count}
-              type="icon-last"
-              prefetch={false}
-              contrast="low"
-              badged
-            />;
-          default:
-            return <PhotoTag
-              key={tag}
-              tag={tag}
-              type="text-only"
-              countOnHover={count}
-              prefetch={false}
-              contrast="low"
-              badged
-            />;
+            case TAG_FAVS:
+              return <PhotoFavs
+                key={TAG_FAVS}
+                countOnHover={count}
+                type="icon-last"
+                prefetch={false}
+                contrast="low"
+                badged
+              />;
+            case TAG_PRIVATE:
+              return <PhotoPrivate
+                key={TAG_PRIVATE}
+                countOnHover={count}
+                type="icon-last"
+                prefetch={false}
+                contrast="low"
+                badged
+              />;
+            default:
+              return <PhotoTag
+                key={tag}
+                tag={tag}
+                type="text-only"
+                countOnHover={count}
+                prefetch={false}
+                contrast="low"
+                badged
+              />;
           }
         })}
     />
@@ -315,14 +315,14 @@ export default function PhotoGridSidebar({
       />}
       {CATEGORY_VISIBILITY.map(category => {
         switch (category) {
-        case 'recents': return recentsContent;
-        case 'years': return yearsContent;
-        case 'cameras': return camerasContent;
-        case 'lenses': return lensesContent;
-        case 'tags': return tagsContent;
-        case 'recipes': return recipesContent;
-        case 'films': return filmsContent;
-        case 'focal-lengths': return focalLengthsContent;
+          case 'recents': return recentsContent;
+          case 'years': return yearsContent;
+          case 'cameras': return camerasContent;
+          case 'lenses': return lensesContent;
+          case 'tags': return tagsContent;
+          case 'recipes': return recipesContent;
+          case 'films': return filmsContent;
+          case 'focal-lengths': return focalLengthsContent;
         }
       })}
       {photoStatsContent}

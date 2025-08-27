@@ -1,14 +1,12 @@
 import { formatFocalLength } from '@/focal';
-import { getNextImageUrlForRequest } from '@/platforms/next-image';
 import { photoHasFilmData } from '@/film';
 import {
-  IS_PREVIEW,
   SHOW_EXIF_DATA,
   SHOW_FILMS,
   SHOW_LENSES,
   SHOW_RECIPES,
 } from '@/app/config';
-import { ABSOLUTE_PATH_HOME_IMAGE } from '@/app/paths';
+import { ABSOLUTE_PATH_HOME_IMAGE } from '@/app/path';
 import { formatDate, formatDateFromPostgresString } from '@/utility/date';
 import {
   formatAperture,
@@ -22,8 +20,9 @@ import { isBefore } from 'date-fns';
 import type { Metadata } from 'next';
 import { FujifilmRecipe } from '@/platforms/fujifilm/recipe';
 import { FujifilmSimulation } from '@/platforms/fujifilm/simulation';
-import { PhotoSyncStatus, generatePhotoSyncStatus } from './sync';
+import { PhotoUpdateStatus, generatePhotoUpdateStatus } from './update';
 import { AppTextState } from '@/i18n/state';
+import { PhotoColorData } from './color/client';
 
 // INFINITE SCROLL: FULL
 export const INFINITE_SCROLL_FULL_INITIAL =
@@ -69,6 +68,10 @@ export interface PhotoExif {
   recipeData?: string
   takenAt?: string
   takenAtNaive?: string
+  // Photo meta potentially located in EXIF/XMP data
+  title?: string
+  caption?: string
+  tags?: string[]
 }
 
 // Raw db insert
@@ -77,12 +80,13 @@ export interface PhotoDbInsert extends PhotoExif {
   url: string
   extension: string
   blurData?: string
-  title?: string
   caption?: string
   semanticDescription?: string
   tags?: string[]
   recipeTitle?: string
   locationName?: string
+  colorData?: string
+  colorSort?: number
   priorityOrder?: number
   excludeFromFeeds?: boolean
   hidden?: boolean
@@ -100,7 +104,7 @@ export interface PhotoDb extends
 }
 
 // Parsed db response
-export interface Photo extends Omit<PhotoDb, 'recipeData'> {
+export interface Photo extends Omit<PhotoDb, 'recipeData' | 'colorData'> {
   focalLengthFormatted?: string
   focalLengthIn35MmFormatFormatted?: string
   fNumberFormatted?: string
@@ -110,7 +114,8 @@ export interface Photo extends Omit<PhotoDb, 'recipeData'> {
   takenAtNaiveFormatted: string
   tags: string[]
   recipeData?: FujifilmRecipe
-  syncStatus: PhotoSyncStatus
+  colorData?: PhotoColorData
+  updateStatus?: PhotoUpdateStatus
 }
 
 export const parsePhotoFromDb = (photoDbRaw: PhotoDb): Photo => {
@@ -144,7 +149,10 @@ export const parsePhotoFromDb = (photoDbRaw: PhotoDb): Photo => {
         ? JSON.parse(photoDb.recipeData)
         : photoDb.recipeData
       : undefined,
-    syncStatus: generatePhotoSyncStatus(photoDb),
+    colorData: photoDb.colorData
+      ? photoDb.colorData
+      : undefined,
+    updateStatus: generatePhotoUpdateStatus(photoDb),
   } as Photo;
 };
 
@@ -164,14 +172,8 @@ export const convertPhotoToPhotoDbInsert = (
   ...photo,
   takenAt: photo.takenAt.toISOString(),
   recipeData: JSON.stringify(photo.recipeData),
+  colorData: JSON.stringify(photo.colorData),
 });
-
-export const photoStatsAsString = (photo: Photo) => [
-  photo.model,
-  photo.focalLengthFormatted,
-  photo.fNumberFormatted,
-  photo.isoFormatted,
-].join(' ');
 
 export const descriptionForPhoto = (
   photo: Photo,
@@ -372,17 +374,6 @@ export const getKeywordsForPhoto = (photo: Photo) =>
     .concat((photo.semanticDescription ?? '').split(' '))
     .filter(Boolean)
     .map(keyword => keyword.toLocaleLowerCase());
-
-export const isNextImageReadyBasedOnPhotos = async (
-  photos: Photo[],
-): Promise<boolean> =>
-  photos.length > 0 && fetch(getNextImageUrlForRequest({
-    imageUrl: photos[0].url,
-    size: 640,
-    addBypassSecret: IS_PREVIEW,
-  }))
-    .then(response => response.ok)
-    .catch(() => false);
 
 export const downloadFileNameForPhoto = (photo: Photo) =>
   photo.title

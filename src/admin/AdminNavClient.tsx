@@ -7,10 +7,11 @@ import Spinner from '@/components/Spinner';
 import {
   PATH_ADMIN_CONFIGURATION,
   PATH_ADMIN_INSIGHTS,
+  PATH_ADMIN_PHOTOS_UPDATES,
   checkPathPrefix,
   isPathAdminInfo,
   isPathTopLevelAdmin,
-} from '@/app/paths';
+} from '@/app/path';
 import { useAppState } from '@/app/AppState';
 import { clsx } from 'clsx/lite';
 import { differenceInMinutes } from 'date-fns';
@@ -60,7 +61,10 @@ export default function AdminNavClient({
     return () => clearInterval(interval);
   }, [updateTimes]);
 
-  const shouldShowBanner = hasRecentUpdates && isPathTopLevelAdmin(pathname);
+  const shouldShowBanner =
+    hasRecentUpdates &&
+    isPathTopLevelAdmin(pathname) &&
+    pathname !== PATH_ADMIN_PHOTOS_UPDATES;
 
   return (
     <AppGrid

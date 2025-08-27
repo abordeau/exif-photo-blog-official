@@ -13,6 +13,8 @@ import {
   deletePhotoRecipeGlobally,
   renamePhotoRecipeGlobally,
   getPhotosNeedingRecipeTitleCount,
+  updateColorDataForPhoto,
+  getColorDataForPhotos,
 } from '@/photo/db/query';
 import { PhotoQueryOptions, areOptionsSensitive } from './db';
 import {
@@ -37,7 +39,7 @@ import {
   PATH_ADMIN_TAGS,
   PATH_ROOT,
   pathForPhoto,
-} from '@/app/paths';
+} from '@/app/path';
 import {
   blurImageFromUrl,
   convertFormDataToPhotoDbInsertAndLookupRecipeTitle,
@@ -47,19 +49,23 @@ import {
 import { TAG_FAVS, isPhotoFav, isTagFavs } from '@/tag';
 import { convertPhotoToPhotoDbInsert, Photo } from '.';
 import { runAuthenticatedAdminServerAction } from '@/auth/server';
-import { AiImageQuery, getAiImageQuery } from './ai';
+import { AiImageQuery, getAiImageQuery, getAiTextFieldsToGenerate } from './ai';
 import { streamOpenAiImageQuery } from '@/platforms/openai';
 import {
   AI_TEXT_AUTO_GENERATED_FIELDS,
-  AI_TEXT_GENERATION_ENABLED,
+  AI_CONTENT_GENERATION_ENABLED,
   BLUR_ENABLED,
 } from '@/app/config';
 import { generateAiImageQueries } from './ai/server';
-import { createStreamableValue } from 'ai/rsc';
+import { createStreamableValue } from '@ai-sdk/rsc';
 import { convertUploadToPhoto } from './storage';
 import { UrlAddStatus } from '@/admin/AdminUploadsClient';
 import { convertStringToArray } from '@/utility/string';
 import { after } from 'next/server';
+import {
+  getColorFieldsForImageUrl,
+  getColorFieldsForPhotoDbInsert,
+} from '@/photo/color/server';
 
 // Private actions
 
@@ -90,8 +96,8 @@ export const createPhotoAction = async (formData: FormData) =>
 // - addUploadsAction
 const addUpload = async ({
   url,
-  title,
-  tags,
+  title: _title,
+  tags: _tags,
   favorite,
   hidden,
   excludeFromFeeds,
@@ -124,32 +130,38 @@ const addUpload = async ({
   } = await extractImageDataFromBlobPath(url, {
     includeInitialPhotoFields: true,
     generateBlurData: BLUR_ENABLED,
-    generateResizedImage: AI_TEXT_GENERATION_ENABLED,
+    generateResizedImage: AI_CONTENT_GENERATION_ENABLED,
   });
 
   if (formDataFromExif) {
-    if (AI_TEXT_GENERATION_ENABLED) {
+    if (AI_CONTENT_GENERATION_ENABLED) {
       onStreamUpdate?.('Generating AI text');
     }
 
+    const title = _title || formDataFromExif.title;
+    const caption = formDataFromExif.caption;
+    const tags = _tags || formDataFromExif.tags;
+
     const {
       title: aiTitle,
-      caption,
+      caption: aiCaption,
       tags: aiTags,
       semanticDescription,
     } = await generateAiImageQueries(
       imageResizedBase64,
-      Boolean(title)
-        ? AI_TEXT_AUTO_GENERATED_FIELDS
-          .filter(field => field !== 'title')
-        : AI_TEXT_AUTO_GENERATED_FIELDS,
+      getAiTextFieldsToGenerate(
+        AI_TEXT_AUTO_GENERATED_FIELDS,
+        Boolean(title),
+        Boolean(caption),
+        Boolean(tags),
+      ),
       title,
     );
 
     const form: Partial<PhotoFormData> = {
       ...formDataFromExif,
       title: title || aiTitle,
-      caption,
+      caption: caption || aiCaption,
       tags: tags || aiTags,
       excludeFromFeeds,
       hidden,
@@ -184,9 +196,7 @@ const addUpload = async ({
 };
 
 export const addUploadAction = async (args: Parameters<typeof addUpload>[0]) =>
-  runAuthenticatedAdminServerAction(async () => {
-    await addUpload(args);
-  });
+  runAuthenticatedAdminServerAction(() => addUpload(args));
 
 export const addUploadsAction = async ({
   uploadUrls,
@@ -207,7 +217,7 @@ export const addUploadsAction = async ({
   shouldRevalidateAllKeysAndPaths?: boolean
 }) =>
   runAuthenticatedAdminServerAction(async () => {
-    const PROGRESS_TASK_COUNT = AI_TEXT_GENERATION_ENABLED ? 5 : 4;
+    const PROGRESS_TASK_COUNT = AI_CONTENT_GENERATION_ENABLED ? 5 : 4;
 
     const addedUploadUrls: string[] = [];
     let currentUploadUrl = '';
@@ -401,6 +411,39 @@ export const getPhotosNeedingRecipeTitleCountAction = async (
     ),
   );
 
+export const storeColorDataForPhotoAction = async (photoId: string) =>
+  runAuthenticatedAdminServerAction(async () => {
+    const photo = await getPhoto(photoId, true);
+    if (photo) {
+      const colorFields = await getColorFieldsForImageUrl(
+        photo.url,
+        photo.colorData,
+      );
+      if (colorFields) {
+        await updatePhoto(convertPhotoToPhotoDbInsert({
+          ...photo,
+          ...colorFields,
+        }));
+      }
+      revalidatePhoto(photo.id);
+    }
+  });
+
+export const recalculateColorDataForAllPhotosAction = async () =>
+  runAuthenticatedAdminServerAction(async () => {
+    const photos = await getColorDataForPhotos();
+    for (const { id, url, colorData: _colorData } of photos) {
+      const colorFields = await getColorFieldsForPhotoDbInsert(url, _colorData);
+      if (colorFields && colorFields.colorSort) {
+        await updateColorDataForPhoto(
+          id,
+          colorFields.colorData,
+          colorFields.colorSort,
+        );
+      }
+    }
+  });
+
 export const deletePhotoRecipeGloballyAction = async (formData: FormData) =>
   runAuthenticatedAdminServerAction(async () => {
     const recipe = formData.get('recipe') as string;
@@ -463,7 +506,7 @@ export const syncPhotoAction = async (photoId: string, isBatch?: boolean) =>
       } = await extractImageDataFromBlobPath(photo.url, {
         includeInitialPhotoFields: false,
         generateBlurData: BLUR_ENABLED,
-        generateResizedImage: AI_TEXT_GENERATION_ENABLED,
+        generateResizedImage: AI_CONTENT_GENERATION_ENABLED,
       });
 
       let urlToDelete: string | undefined;
@@ -490,14 +533,14 @@ export const syncPhotoAction = async (photoId: string, isBatch?: boolean) =>
           semanticDescription: aiSemanticDescription,
         } = await generateAiImageQueries(
           imageResizedBase64,
-          photo.syncStatus.missingAiTextFields,
+          photo.updateStatus?.isMissingAiTextFields,
           undefined,
           isBatch,
         );
 
         const formDataFromPhoto = convertPhotoToFormData(photo);
 
-        // Don't overwrite manually configured fujifilm meta with null data
+        // Don't overwrite manually configured meta with null data
         FIELDS_TO_NOT_OVERWRITE_WITH_NULL_DATA_ON_SYNC.forEach(field => {
           if (!formDataFromExif[field] && formDataFromPhoto[field]) {
             delete formDataFromExif[field];
@@ -526,10 +569,15 @@ export const syncPhotoAction = async (photoId: string, isBatch?: boolean) =>
     }
   });
 
-export const syncPhotosAction = async (photoIds: string[]) =>
+export const syncPhotosAction = async (photosToSync: {
+  photoId: string,
+  onlySyncColorData?: boolean,
+}[]) =>
   runAuthenticatedAdminServerAction(async () => {
-    for (const photoId of photoIds) {
-      await syncPhotoAction(photoId, true);
+    for (const { photoId, onlySyncColorData } of photosToSync) {
+      await (onlySyncColorData
+        ? storeColorDataForPhotoAction(photoId)
+        : syncPhotoAction(photoId, true));
     }
     revalidateAllKeysAndPaths();
   });

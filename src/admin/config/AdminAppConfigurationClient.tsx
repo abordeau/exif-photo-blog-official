@@ -3,38 +3,35 @@
 import {
   ComponentProps,
   Fragment,
+  JSX,
   ReactNode,
+  useEffect,
+  useState,
 } from 'react';
-import ChecklistRow from '../components/ChecklistRow';
-import {
-  BiData,
-  BiHide,
-  BiLockAlt,
-  BiPencil,
-} from 'react-icons/bi';
-import { HiOutlineCog, HiSparkles } from 'react-icons/hi';
+import ChecklistRow from '@/components/ChecklistRow';
 import ChecklistGroup from '@/components/ChecklistGroup';
-import { AppConfiguration } from '../app/config';
+import { AppConfiguration } from '@/app/config';
 import StatusIcon from '@/components/StatusIcon';
 import { labelForStorage } from '@/platforms/storage';
 import { testConnectionsAction } from '@/admin/actions';
 import ErrorNote from '@/components/ErrorNote';
-import { RiSpeedMiniLine } from 'react-icons/ri';
-import SecretGenerator from '../app/SecretGenerator';
-import { PiPaintBrushHousehold } from 'react-icons/pi';
-import { IoMdGrid } from 'react-icons/io';
-import { CgDebug } from 'react-icons/cg';
+import SecretGenerator from '@/app/SecretGenerator';
 import EnvVar from '@/components/EnvVar';
-import AdminLink from './AdminLink';
+import AdminLink from '@/admin/AdminLink';
 import ScoreCardContainer from '@/components/ScoreCardContainer';
 import { DEFAULT_CATEGORY_KEYS, getHiddenCategories } from '@/category';
 import { AI_AUTO_GENERATED_FIELDS_ALL } from '@/photo/ai';
 import clsx from 'clsx/lite';
 import Link from 'next/link';
-import { PATH_FEED_JSON, PATH_RSS_XML } from '@/app/paths';
-import { FaRegFolderClosed } from 'react-icons/fa6';
-import IconSort from '@/components/icons/IconSort';
-import { APP_DEFAULT_SORT_BY, SORT_BY_OPTIONS } from '@/photo/db/sort';
+import { PATH_FEED_JSON, PATH_RSS_XML } from '@/app/path';
+import { APP_DEFAULT_SORT_BY, DEFAULT_SORT_BY_OPTIONS } from '@/photo/sort';
+import {
+  AdminConfigSection,
+  ConfigSectionKey,
+  getAdminConfigSections,
+} from '.';
+import ColorDot from '@/photo/color/ColorDot';
+import { Oklch } from '@/photo/color/client';
 
 export default function AdminAppConfigurationClient({
   // Storage
@@ -90,8 +87,13 @@ export default function AdminAppConfigurationClient({
   // Sort
   hasDefaultSortBy,
   defaultSortBy,
+  hasNavSortControl,
+  navSortControl,
+  isColorSortEnabled,
+  hasColorSortConfiguration,
+  colorSortStartingHue,
+  colorSortChromaCutoff,
   isSortWithPriority,
-  showSortControl,
   // Display
   showKeyboardShortcutTooltips,
   showExifInfo,
@@ -132,9 +134,19 @@ export default function AdminAppConfigurationClient({
   isAnalyzingConfiguration,
 }: AppConfiguration &
   Partial<Awaited<ReturnType<typeof testConnectionsAction>>> & {
-  simplifiedView?: boolean
-  isAnalyzingConfiguration?: boolean
-}) {
+    simplifiedView?: boolean
+    isAnalyzingConfiguration?: boolean
+  }) {
+  const [hasScrolled, setHasScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => { setHasScrolled(true); };
+    window.addEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
   const renderContent = (content?: ReactNode) => content
     ? <div className={clsx(
       'my-1 px-2 py-1',
@@ -195,224 +207,221 @@ export default function AdminAppConfigurationClient({
       {children || href}
     </Link>;
 
-  return (
-    <ScoreCardContainer>
-      <ChecklistGroup
-        title="Storage"
-        icon={<BiData size={16} />}
-      >
-        <ChecklistRow
-          title={hasDatabase && isAnalyzingConfiguration
-            ? 'Testing database connection'
-            : 'Setup database'}
-          status={hasDatabase}
-          isPending={hasDatabase && isAnalyzingConfiguration}
-        >
-          {databaseError && renderError({
-            connection: { provider: 'Database', error: databaseError},
-          })}
-          {hasVercelPostgres
-            ? renderSubStatus('checked', 'Vercel Postgres: connected')
-            : renderSubStatus('optional', <>
-              Vercel Postgres:
-              {' '}
-              <AdminLink
+  const renderColorDot = (color: Oklch | string, includeTooltip?: boolean) =>
+    <ColorDot
+      color={color}
+      className="size-3! ml-1"
+      includeTooltip={includeTooltip}
+    />;
+
+  const renderGroupContent = (key: ConfigSectionKey): JSX.Element => {
+    switch (key) {
+      case 'Storage':
+        return <>
+          <ChecklistRow
+            title={hasDatabase && isAnalyzingConfiguration
+              ? 'Testing database connection'
+              : 'Setup database'}
+            status={hasDatabase}
+            isPending={hasDatabase && isAnalyzingConfiguration}
+          >
+            {databaseError && renderError({
+              connection: { provider: 'Database', error: databaseError},
+            })}
+            {hasVercelPostgres
+              ? renderSubStatus('checked', 'Vercel Postgres: connected')
+              : renderSubStatus('optional', <>
+                Vercel Postgres:
+                {' '}
+                <AdminLink
                 // eslint-disable-next-line max-len
-                href="https://vercel.com/docs/storage/vercel-postgres/quickstart#create-a-postgres-database"
-                externalIcon
-              >
-                create store
-              </AdminLink>
-              {' '}
-              and connect to project
-            </>)}
-          {hasDatabase && !hasVercelPostgres &&
+                  href="https://vercel.com/docs/storage/vercel-postgres/quickstart#create-a-postgres-database"
+                  externalIcon
+                >
+                  create store
+                </AdminLink>
+                {' '}
+                and connect to project
+              </>)}
+            {hasDatabase && !hasVercelPostgres &&
             renderSubStatus('checked', <>
               Postgres-compatible: connected
               {' '}
               (SSL {isPostgresSslEnabled ? 'enabled' : 'disabled'})
             </>)}
-        </ChecklistRow>
-        <ChecklistRow
-          title={
-            hasStorageProvider && isAnalyzingConfiguration
-              ? 'Testing storage connection'
-              : !hasStorageProvider
-                ? 'Setup storage (one of the following)'
-                : hasMultipleStorageProviders
+          </ChecklistRow>
+          <ChecklistRow
+            title={
+              hasStorageProvider && isAnalyzingConfiguration
+                ? 'Testing storage connection'
+                : !hasStorageProvider
+                  ? 'Setup storage (one of the following)'
+                  : hasMultipleStorageProviders
                   // eslint-disable-next-line max-len
-                  ? `Setup storage (new uploads go to: ${labelForStorage(currentStorage)})`
-                  : 'Setup storage'}
-          status={hasStorageProvider}
-          isPending={hasStorageProvider && isAnalyzingConfiguration}
-        >
-          {storageError && renderError({
-            connection: { provider: 'Storage', error: storageError},
-          })}
-          <div>
-            {hasVercelBlobStorage
-              ? renderSubStatus('checked', 'Vercel Blob: connected')
-              : renderSubStatus('optional', <>
-                {labelForStorage('vercel-blob')}:
-                {' '}
-                <AdminLink
+                    ? `Setup storage (new uploads go to: ${labelForStorage(currentStorage)})`
+                    : 'Setup storage'}
+            status={hasStorageProvider}
+            isPending={hasStorageProvider && isAnalyzingConfiguration}
+          >
+            {storageError && renderError({
+              connection: { provider: 'Storage', error: storageError},
+            })}
+            <div>
+              {hasVercelBlobStorage
+                ? renderSubStatus('checked', 'Vercel Blob: connected')
+                : renderSubStatus('optional', <>
+                  {labelForStorage('vercel-blob')}:
+                  {' '}
+                  <AdminLink
                   // eslint-disable-next-line max-len
-                  href="https://vercel.com/docs/storage/vercel-blob/quickstart#create-a-blob-store"
-                  externalIcon
-                >
-                  create store
-                </AdminLink>
-                {' '} 
-                and connect to project
-              </>,
-              )}
-            {hasCloudflareR2Storage
-              ? renderSubStatus('checked', 'Cloudflare R2: connected')
-              : renderSubStatus('optional', <>
-                {labelForStorage('cloudflare-r2')}:
-                {' '}
-                <AdminLink
+                    href="https://vercel.com/docs/storage/vercel-blob/quickstart#create-a-blob-store"
+                    externalIcon
+                  >
+                    create store
+                  </AdminLink>
+                  {' '} 
+                  and connect to project
+                </>,
+                )}
+              {hasCloudflareR2Storage
+                ? renderSubStatus('checked', 'Cloudflare R2: connected')
+                : renderSubStatus('optional', <>
+                  {labelForStorage('cloudflare-r2')}:
+                  {' '}
+                  <AdminLink
                   // eslint-disable-next-line max-len
-                  href="https://github.com/sambecker/exif-photo-blog#cloudflare-r2"
-                  externalIcon
-                >
-                  create/configure bucket
-                </AdminLink>
-              </>)}
-            {hasAwsS3Storage
-              ? renderSubStatus('checked', 'AWS S3: connected')
-              : renderSubStatus('optional', <>
-                {labelForStorage('aws-s3')}:
-                {' '}
-                <AdminLink
-                  href="https://github.com/sambecker/exif-photo-blog#aws-s3"
-                  externalIcon
-                >
-                  create/configure bucket
-                </AdminLink>
-              </>)}
-          </div>
-        </ChecklistRow>
-      </ChecklistGroup>
-      <ChecklistGroup
-        title="Authentication"
-        icon={<BiLockAlt size={16} />}
-      >
-        <ChecklistRow
-          title={!hasAuthSecret && isAnalyzingConfiguration
-            ? 'Generating secret'
-            : 'Setup auth'}
-          status={hasAuthSecret}
-          isPending={!hasAuthSecret && isAnalyzingConfiguration}
-        >
-          Store auth secret in environment variable:
-          {!hasAuthSecret &&
+                    href="https://github.com/sambecker/exif-photo-blog#cloudflare-r2"
+                    externalIcon
+                  >
+                    create/configure bucket
+                  </AdminLink>
+                </>)}
+              {hasAwsS3Storage
+                ? renderSubStatus('checked', 'AWS S3: connected')
+                : renderSubStatus('optional', <>
+                  {labelForStorage('aws-s3')}:
+                  {' '}
+                  <AdminLink
+                    href="https://github.com/sambecker/exif-photo-blog#aws-s3"
+                    externalIcon
+                  >
+                    create/configure bucket
+                  </AdminLink>
+                </>)}
+            </div>
+          </ChecklistRow>
+        </>;
+      case 'Authentication':
+        return <>
+          <ChecklistRow
+            title={!hasAuthSecret && isAnalyzingConfiguration
+              ? 'Generating secret'
+              : 'Setup auth'}
+            status={hasAuthSecret}
+            isPending={!hasAuthSecret && isAnalyzingConfiguration}
+          >
+            Store auth secret in environment variable:
+            {!hasAuthSecret &&
             <div className="overflow-x-auto">
               <SecretGenerator />
             </div>}
-          {renderEnvVars(['AUTH_SECRET'])}
-        </ChecklistRow>
-        <ChecklistRow
-          title="Setup admin user"
-          status={hasAdminUser}
-        >
-          Store admin email/password
-          {' '}
-          in environment variables:
-          {renderEnvVars([
-            'ADMIN_EMAIL',
-            'ADMIN_PASSWORD',
-          ])}
-        </ChecklistRow>
-      </ChecklistGroup>
-      <ChecklistGroup
-        title="Content"
-        icon={<BiPencil size={16} />}
-      >
-        <ChecklistRow
-          title="Configure language"
-          status={hasLocale}
-          optional
-        >
-          {renderContent(locale)}
-          Store in environment variable
-          (check README for
-          {' '}
-          <AdminLink
-            // eslint-disable-next-line max-len
-            href="https://github.com/sambecker/exif-photo-blog?tab=readme-ov-file#supported-languages"
-          >
-            supported languages
-          </AdminLink>
-          ):
-          {renderEnvVars(['NEXT_PUBLIC_LOCALE'])}
-        </ChecklistRow>
-        <ChecklistRow
-          title="Configure domain"
-          status={hasDomain}
-        >
-          {renderContent(domain)}
-          Store in environment variable
-          (used in explicit share urls, seen in nav if no title is defined):
-          {renderEnvVars(['NEXT_PUBLIC_DOMAIN'])}
-        </ChecklistRow>
-        <ChecklistRow
-          title="Meta title"
-          status={isMetaTitleConfigured}
-          showWarning
-        >
-          {renderContent(metaTitle)}
-          Store in environment variable
-          (seen in search results and browser tab):
-          {renderEnvVars(['NEXT_PUBLIC_META_TITLE'])}
-        </ChecklistRow>
-        {!simplifiedView && <>
+            {renderEnvVars(['AUTH_SECRET'])}
+          </ChecklistRow>
           <ChecklistRow
-            title="Meta description"
-            status={isMetaDescriptionConfigured}
+            title="Setup admin user"
+            status={hasAdminUser}
+          >
+            Store admin email/password
+            {' '}
+            in environment variables:
+            {renderEnvVars([
+              'ADMIN_EMAIL',
+              'ADMIN_PASSWORD',
+            ])}
+          </ChecklistRow>
+        </>;
+      case 'Content':
+        return <>
+          <ChecklistRow
+            title="Configure language"
+            status={hasLocale}
             optional
           >
-            {renderContent(metaDescription)}
+            {renderContent(locale)}
             Store in environment variable
-            (seen in search results):
-            {renderEnvVars(['NEXT_PUBLIC_META_DESCRIPTION'])}
+            (check README for
+            {' '}
+            <AdminLink
+            // eslint-disable-next-line max-len
+              href="https://github.com/sambecker/exif-photo-blog?tab=readme-ov-file#supported-languages"
+            >
+              supported languages
+            </AdminLink>
+            ):
+            {renderEnvVars(['NEXT_PUBLIC_LOCALE'])}
           </ChecklistRow>
           <ChecklistRow
-            title="Nav title"
-            status={hasNavTitle}
-            optional
+            title="Configure domain"
+            status={hasDomain}
           >
-            {renderContent(navTitle)}
-            Store in environment variable (replaces domain in top-right nav):
-            {renderEnvVars(['NEXT_PUBLIC_NAV_TITLE'])}
+            {renderContent(domain)}
+            Store in environment variable
+            (used in explicit share urls, seen in nav if no title is defined):
+            {renderEnvVars(['NEXT_PUBLIC_DOMAIN'])}
           </ChecklistRow>
           <ChecklistRow
-            title="Nav caption"
-            status={hasNavCaption}
-            optional
+            title="Meta title"
+            status={isMetaTitleConfigured}
+            showWarning
           >
-            {hasNavCaption && renderContent(navCaption)}
-            Store in environment variable (seen in top-right nav, under title):
-            {renderEnvVars(['NEXT_PUBLIC_NAV_CAPTION'])}
+            {renderContent(metaTitle)}
+            Store in environment variable
+            (seen in search results and browser tab):
+            {renderEnvVars(['NEXT_PUBLIC_META_TITLE'])}
           </ChecklistRow>
-          <ChecklistRow
-            title="Page about"
-            status={hasPageAbout}
-            optional
-          >
-            {hasPageAbout && renderContent(pageAbout)}
-            Store in environment variable (seen in sidebar):
-            {renderEnvVars(['NEXT_PUBLIC_PAGE_ABOUT'])}
-          </ChecklistRow>
-        </>}
-      </ChecklistGroup>
-      {!simplifiedView && <>
-        <ChecklistGroup
-          title="AI text generation"
-          titleShort="AI"
-          icon={<HiSparkles size={14} />}
-          optional
-        >
+          {!simplifiedView && <>
+            <ChecklistRow
+              title="Meta description"
+              status={isMetaDescriptionConfigured}
+              optional
+            >
+              {renderContent(metaDescription)}
+              Store in environment variable
+              (seen in search results):
+              {renderEnvVars(['NEXT_PUBLIC_META_DESCRIPTION'])}
+            </ChecklistRow>
+            <ChecklistRow
+              title="Nav title"
+              status={hasNavTitle}
+              optional
+            >
+              {renderContent(navTitle)}
+              Store in environment variable (replaces domain in top-right nav):
+              {renderEnvVars(['NEXT_PUBLIC_NAV_TITLE'])}
+            </ChecklistRow>
+            <ChecklistRow
+              title="Nav caption"
+              status={hasNavCaption}
+              optional
+            >
+              {hasNavCaption && renderContent(navCaption)}
+              Store in environment variable
+              (seen in top-right nav, under title):
+              {renderEnvVars(['NEXT_PUBLIC_NAV_CAPTION'])}
+            </ChecklistRow>
+            <ChecklistRow
+              title="Page about"
+              status={hasPageAbout}
+              optional
+            >
+              {hasPageAbout && renderContent(pageAbout)}
+              Store in environment variable (seen in sidebar):
+              {renderEnvVars(['NEXT_PUBLIC_PAGE_ABOUT'])}
+            </ChecklistRow>
+          </>}
+        </>;
+      case 'AI Content Generation':
+        return <>
           <ChecklistRow
             title={isAiTextGenerationEnabled && isAnalyzingConfiguration
               ? 'Testing OpenAI connection'
@@ -431,21 +440,21 @@ export default function AdminAppConfigurationClient({
             {renderEnvVars(['OPENAI_SECRET_KEY'])}
           </ChecklistRow>
           <ChecklistRow
-            title={'Auto-generated fields'}
+            title={'Auto-generated text fields'}
             status={hasAiTextAutoGeneratedFields}
             optional
           >
             <div>
               {hasAiTextAutoGeneratedFields &&
-                AI_AUTO_GENERATED_FIELDS_ALL.map(field =>
-                  <Fragment key={field}>
-                    {renderSubStatus(
-                      aiTextAutoGeneratedFields.includes(field)
-                        ? 'checked'
-                        : 'optional',
-                      field,
-                    )}
-                  </Fragment>)}
+              AI_AUTO_GENERATED_FIELDS_ALL.map(field =>
+                <Fragment key={field}>
+                  {renderSubStatus(
+                    aiTextAutoGeneratedFields.includes(field)
+                      ? 'checked'
+                      : 'optional',
+                    field,
+                  )}
+                </Fragment>)}
             </div>
             Comma-separated fields to auto-generate when
             uploading photos. Accepted values: title, caption,
@@ -478,12 +487,9 @@ export default function AdminAppConfigurationClient({
             alternate OpenAI-compatible providers:
             {renderEnvVars(['OPENAI_BASE_URL'])}
           </ChecklistRow>
-        </ChecklistGroup>
-        <ChecklistGroup
-          title="Performance"
-          icon={<RiSpeedMiniLine size={19} />}
-          optional
-        >
+        </>;
+      case 'Performance':
+        return <>
           <ChecklistRow
             title="Static optimization"
             status={isStaticallyOptimized}
@@ -506,7 +512,7 @@ export default function AdminAppConfigurationClient({
                 'NEXT_PUBLIC_STATICALLY_OPTIMIZE_PHOTO_CATEGORIES',
               )}
               {renderSubStatusWithEnvVar(
-                // eslint-disable-next-line max-len
+              // eslint-disable-next-line max-len
                 arePhotoCategoryOgImagesStaticallyOptimized ? 'checked' : 'optional',
                 'NEXT_PUBLIC_STATICALLY_OPTIMIZE_PHOTO_CATEGORY_OG_IMAGES',
               )}
@@ -540,13 +546,10 @@ export default function AdminAppConfigurationClient({
             Set environment variable to {'"1"'} to prevent
             image blur data being stored and displayed:
             {renderEnvVars(['NEXT_PUBLIC_BLUR_DISABLED'])}
-          </ChecklistRow>
-        </ChecklistGroup>
-        <ChecklistGroup
-          title="Categories"
-          icon={<FaRegFolderClosed size={15} />}
-          optional
-        >
+          </ChecklistRow> 
+        </>;
+      case 'Categories':
+        return <>
           <ChecklistRow
             title="Visibility and ordering"
             status={hasCategoryVisibility}
@@ -613,30 +616,77 @@ export default function AdminAppConfigurationClient({
             with 2 or more photos
             {renderEnvVars(['NEXT_PUBLIC_HIDE_TAGS_WITH_ONE_PHOTO'])}
           </ChecklistRow>
-        </ChecklistGroup>
-        <ChecklistGroup
-          title="Sorting"
-          icon={<IconSort size={18} className="translate-y-[1px]" />}
-          optional
-        >
+        </>;
+      case 'Sorting':
+        return <>
           <ChecklistRow
-            title="Order"
+            title="Default order"
             status={hasDefaultSortBy}
             optional
           >
             <div>
-              {SORT_BY_OPTIONS.map(({sortBy, string }) =>
-                <Fragment key={ sortBy }>
-                  {renderSubStatus(
-                    sortBy === defaultSortBy ? 'checked' : 'optional',
-                    `${string}${sortBy === APP_DEFAULT_SORT_BY
-                      ? ' (default)'
-                      : ''}`,
-                  )}
-                </Fragment>)}
+              {DEFAULT_SORT_BY_OPTIONS
+                .map(({sortBy, configKey }) =>
+                  <Fragment key={ sortBy }>
+                    {renderSubStatus(
+                      sortBy === defaultSortBy ? 'checked' : 'optional',
+                      `${configKey}${sortBy === APP_DEFAULT_SORT_BY
+                        ? ' (default)'
+                        : ''}`,
+                    )}
+                  </Fragment>)}
             </div>
             Change default sort on grid/full homepages
             {renderEnvVars(['NEXT_PUBLIC_DEFAULT_SORT'])}
+          </ChecklistRow>
+          <ChecklistRow
+            title={`Nav sort control: ${navSortControl}`}
+            status={hasNavSortControl}
+            optional
+          >
+            Set environment variable to {'"none"'}, {'"toggle"'} (default),
+            or {'"menu"'}, to control sort UI on grid/full homepages:
+            {renderEnvVars(['NEXT_PUBLIC_NAV_SORT_CONTROL'])}
+          </ChecklistRow>
+          <ChecklistRow
+            title="Color sort"
+            status={isColorSortEnabled}
+            experimental
+            optional
+          >
+            Set environment variable to {'"1"'} to enable color-based sorting
+            (forces nav sort control to {'"menu,"'} flags photos missing
+            color data in admin dashboard)—color identification
+            benefits greatly from AI being enabled:
+            {renderEnvVars([
+              'NEXT_PUBLIC_COLOR_SORT',
+            ])}
+          </ChecklistRow>
+          <ChecklistRow
+            title="Color sort configuration"
+            status={hasColorSortConfiguration}
+            experimental
+            optional
+          >
+            Configure which colors start first
+            (accepts a hue of 0 to 360, default: 80)
+            and which are considered sufficiently vibrant
+            (accepts a chroma of 0 to 0.37, default: 0.05):
+            <div>
+              <EnvVar
+                variable="NEXT_PUBLIC_COLOR_SORT_STARTING_HUE"
+                value={colorSortStartingHue}
+                accessory={renderColorDot({
+                  l: 0.85,
+                  c: 0.15,
+                  h: colorSortStartingHue,
+                }, false)}
+              />
+              <EnvVar
+                variable="NEXT_PUBLIC_COLOR_SORT_CHROMA_CUTOFF"
+                value={colorSortChromaCutoff}
+              />
+            </div>
           </ChecklistRow>
           <ChecklistRow
             title="Priority-based"
@@ -648,21 +698,9 @@ export default function AdminAppConfigurationClient({
             performance consequences):
             {renderEnvVars(['NEXT_PUBLIC_PRIORITY_BASED_SORTING'])}
           </ChecklistRow>
-          <ChecklistRow
-            title="Show nav button"
-            status={showSortControl}
-            optional
-          >
-            Set environment variable to {'"1"'} to
-            show sort control in desktop nav on grid/full homepages:
-            {renderEnvVars(['NEXT_PUBLIC_SHOW_SORT_CONTROL'])}
-          </ChecklistRow>
-        </ChecklistGroup>
-        <ChecklistGroup
-          title="Display"
-          icon={<BiHide size={18} />}
-          optional
-        >
+        </>;
+      case 'Display':
+        return <>
           <ChecklistRow
             title="Show keyboard shortcut tooltips"
             status={showKeyboardShortcutTooltips}
@@ -716,12 +754,9 @@ export default function AdminAppConfigurationClient({
             Set environment variable to {'"1"'} to hide footer link:
             {renderEnvVars(['NEXT_PUBLIC_HIDE_REPO_LINK'])}
           </ChecklistRow>
-        </ChecklistGroup>
-        <ChecklistGroup
-          title="Grid"
-          icon={<IoMdGrid size={17} />}
-          optional
-        >
+        </>;
+      case 'Grid':
+        return <>
           <ChecklistRow
             title="Grid homepage"
             status={isGridHomepageEnabled}
@@ -750,13 +785,10 @@ export default function AdminAppConfigurationClient({
             on photo grid views (if not configured, density is based on
             aspect ratio):
             {renderEnvVars(['NEXT_PUBLIC_SHOW_LARGE_THUMBNAILS'])}
-          </ChecklistRow>
-        </ChecklistGroup>
-        <ChecklistGroup
-          title="Design"
-          icon={<PiPaintBrushHousehold size={19} />}
-          optional
-        >
+          </ChecklistRow> 
+        </>;
+      case 'Design':
+        return <>
           <ChecklistRow
             title={`Default theme: ${defaultTheme}`}
             status={hasDefaultTheme}
@@ -791,26 +823,17 @@ export default function AdminAppConfigurationClient({
             <div className="pt-1 flex flex-col gap-1">
               <EnvVar
                 variable="NEXT_PUBLIC_MATTE_COLOR"
-                accessory={matteColor && <span
-                  className="size-[15px] border-medium rounded-sm ml-1"
-                  style={{ backgroundColor: matteColor }}
-                />}
+                accessory={matteColor && renderColorDot(matteColor)}
               />
               <EnvVar
                 variable="NEXT_PUBLIC_MATTE_COLOR_DARK"
-                accessory={matteColorDark && <span
-                  className="size-[15px] border-medium rounded-sm ml-1"
-                  style={{ backgroundColor: matteColorDark }}
-                />}
+                accessory={matteColorDark && renderColorDot(matteColorDark)}
               />
             </div>
           </ChecklistRow>
-        </ChecklistGroup>
-        <ChecklistGroup
-          title="Settings"
-          icon={<HiOutlineCog size={17} className="translate-y-[0.5px]" />}
-          optional
-        >
+        </>;
+      case 'Settings':
+        return <>
           <ChecklistRow
             title="Geo privacy"
             status={isGeoPrivacyEnabled}
@@ -848,42 +871,55 @@ export default function AdminAppConfigurationClient({
             keep OG image text bottom aligned (default is {'"top"'}):
             {renderEnvVars(['NEXT_PUBLIC_OG_TEXT_ALIGNMENT'])}
           </ChecklistRow>
-        </ChecklistGroup>
-        {areInternalToolsEnabled &&
-          <ChecklistGroup
-            title="Internal"
-            icon={<CgDebug size={16} />}
+        </>;
+      case 'Internal':
+        return <>
+          <ChecklistRow
+            title="Debug tools"
+            status={areAdminDebugToolsEnabled}
             optional
           >
-            <ChecklistRow
-              title="Debug tools"
-              status={areAdminDebugToolsEnabled}
-              optional
-            >
-              Set environment variable to {'"1"'} to temporarily enable
-              features like photo matting, baseline grid, etc.:
-              {renderEnvVars(['ADMIN_DEBUG_TOOLS'])}
-            </ChecklistRow>
-            <ChecklistRow
-              title="DB optimize"
-              status={isAdminDbOptimizeEnabled}
-              optional
-            >
-              Set environment variable to {'"1"'} to prevent
-              homepages from seeding infinite scroll on load:
-              {renderEnvVars(['ADMIN_DB_OPTIMIZE'])}
-            </ChecklistRow>
-            <ChecklistRow
-              title="SQL debugging"
-              status={isAdminSqlDebugEnabled}
-              optional
-            >
-              Set environment variable to {'"1"'} to enable
-              console output for all sql queries:
-              {renderEnvVars(['ADMIN_SQL_DEBUG'])}
-            </ChecklistRow>
-          </ChecklistGroup>}
-      </>}
+            Set environment variable to {'"1"'} to temporarily enable
+            features like photo matting, baseline grid, etc.:
+            {renderEnvVars(['ADMIN_DEBUG_TOOLS'])}
+          </ChecklistRow>
+          <ChecklistRow
+            title="DB optimize"
+            status={isAdminDbOptimizeEnabled}
+            optional
+          >
+            Set environment variable to {'"1"'} to prevent
+            homepages from seeding infinite scroll on load:
+            {renderEnvVars(['ADMIN_DB_OPTIMIZE'])}
+          </ChecklistRow>
+          <ChecklistRow
+            title="SQL debugging"
+            status={isAdminSqlDebugEnabled}
+            optional
+          >
+            Set environment variable to {'"1"'} to enable
+            console output for all sql queries:
+            {renderEnvVars(['ADMIN_SQL_DEBUG'])}
+          </ChecklistRow>
+        </>;
+    }
+  };
+
+  return (
+    <ScoreCardContainer>
+      {getAdminConfigSections(areInternalToolsEnabled, simplifiedView)
+        .map((section) => (
+          <ChecklistGroup
+            key={section.title}
+            title={section.title}
+            titleShort={(section as AdminConfigSection).titleShort}
+            icon={section.icon}
+            optional={!section.required}
+            updateHashOnVisible={hasScrolled && !simplifiedView}
+          >
+            {renderGroupContent(section.title)}
+          </ChecklistGroup>
+        ))}
       <div className="pl-11 pr-2 sm:pr-11 mt-4 md:mt-7">
         <div>
           Changes to environment variables require a redeploy

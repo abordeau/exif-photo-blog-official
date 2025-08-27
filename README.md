@@ -75,11 +75,11 @@ _⚠️ READ BEFORE PROCEEDING_
 
 1. Setup OpenAI
    - If you don't already have one, create an [OpenAI](https://openai.com) account and fund it (see [this thread](https://github.com/sambecker/exif-photo-blog/issues/110) if you're having issues)
-   - Generate an API key and store in environment variable `OPENAI_SECRET_KEY`
+   - Generate an API key and store in environment variable `OPENAI_SECRET_KEY` (make sure to enable Responses API write access if customizing permissions)
    - Setup usage limits to avoid unexpected charges (_recommended_)
 2. Add rate limiting (_recommended_)
    - As an additional precaution, create an Upstash Redis store from the storage tab of the Vercel dashboard and link it to your project in order to enable rate limiting—no further configuration necessary
-3. Configure auto-generated fields (optional) 
+3. Configure auto-generated fields (optional)
    - Set which text fields auto-generate when uploading a photo by storing a comma-separated list, e.g., `AI_TEXT_AUTO_GENERATED_FIELDS = title,semantic`
    - Accepted values:
      - `all`
@@ -132,7 +132,7 @@ Application behavior can be changed by configuring the following environment var
 - `NEXT_PUBLIC_CATEGORY_VISIBILITY`
   - Comma-separated value controlling which photo sets appear in grid sidebar and CMD-K menu, and in what order. For example, you could move cameras above tags, and hide film simulations, by updating to `cameras,tags,lenses,recipes`.
   - Accepted values:
-     - `recents`
+     - `recents` (default)
      - `years`
      - `tags` (default)
      - `cameras` (default)
@@ -152,8 +152,18 @@ Application behavior can be changed by configuring the following environment var
     - `taken-at-oldest-first`
     - `uploaded-at`
     - `uploaded-at-oldest-first`
+- `NEXT_PUBLIC_NAV_SORT_CONTROL`
+  - Controls sort UI on grid/full homepages
+  - Accepted values:
+    - `none`
+    - `toggle` (default)
+    - `menu`
+- Color-based sorting (experimental)
+  - `NEXT_PUBLIC_SORT_BY_COLOR = 1` enables color-based sorting (forces nav sort control to "menu," flags photos missing color data in admin dashboard)—color identification benefits greatly from AI being enabled
+  - `NEXT_PUBLIC_COLOR_SORT_STARTING_HUE` controls which colors start first (accepts a hue of 0 to 360, default: 80)
+  - `NEXT_PUBLIC_COLOR_SORT_CHROMA_CUTOFF` controls which colors are considered sufficiently vibrant (accepts a chroma of 0 to 0.37, default: 0.05):
 - `NEXT_PUBLIC_PRIORITY_BASED_SORTING = 1` takes priority field into account when sorting photos (⚠️ enabling may have performance consequences)
-- `NEXT_PUBLIC_SHOW_SORT_CONTROL = 1` shows sort control in desktop nav on grid/full homepages
+
 
 #### Display
 - `NEXT_PUBLIC_HIDE_KEYBOARD_SHORTCUT_TOOLTIPS = 1` hides keyboard shortcut hints in areas like the main nav, and previous/next photo links
@@ -280,16 +290,18 @@ Vercel Postgres can be switched to another Postgres-compatible, pooling provider
 Partial internationalization (for non-admin, user-facing text) provided for a handful of languages. Configure locale by setting environment variable `NEXT_PUBLIC_LOCALE`.
 
 ### Supported Languages
+- `bd-bn`
+- `en-gb`
 - `en-us`
+- `id-id`
 - `pt-br`
 - `pt-pt`
-- `id-id`
+- `tr-tr`
 - `zh-cn`
-- `bd-bn`
 
 To add support for a new language, open a PR following instructions in [/src/i18n/index.ts](https://github.com/sambecker/exif-photo-blog/blob/main/src/i18n/index.ts), using [en-us.ts](https://github.com/sambecker/exif-photo-blog/blob/main/src/i18n/locales/en-us.ts) as reference.
 
-Thank you ❤️ translators: [@sconetto](https://github.com/sconetto) (`pt-br`, `pt-pt`), [@brandnholl](https://github.com/brandnholl) (`id-id`), [@TongEc](https://github.com/TongEc) (`zh-cn`), [@xahidex](https://github.com/xahidex) (`bd-bn`)
+Thank you ❤️ translators: [@sconetto](https://github.com/sconetto) (`pt-br`, `pt-pt`), [@brandnholl](https://github.com/brandnholl) (`id-id`), [@TongEc](https://github.com/TongEc) (`zh-cn`), [@xahidex](https://github.com/xahidex) (`bd-bn`), [@mehmetabak](https://github.com/mehmetabak) (`tr-tr`), [@simondeeley](https://github.com/simondeeley) (`en-gb`)
 
 📖&nbsp;&nbsp;FAQ
 -
@@ -297,13 +309,13 @@ Thank you ❤️ translators: [@sconetto](https://github.com/sconetto) (`pt-br`,
 > For forked repos, click "Code," then "Update branch" from the main repo page. If you originally cloned the code, you can [create a fork](https://github.com/sambecker/exif-photo-blog/fork) from GitHub, then update your Git connection from your Vercel project settings. Once you've done this, you may need to go to your project deployments page, click •••, select "Create deployment," and choose `main`.
 
 #### How do I edit multiple photos?
-> On desktop, select ••• menu in the top right next to site title and choose, "Select Multiple." On mobile, "Select Multiple Photos" can be accessed from the search menu. From there, you can perform bulk tag, favorite, and delete actions.
+> In the admin menu, select "Batch edit ..." From there, you can perform bulk tag, favorite, and delete actions.
 
 #### Why don't my photo changes show up immediately?
 > This template statically optimizes core views such as `/` and `/grid` to minimize visitor load times. Consequently, when photos are added, edited, or removed, it might take several minutes for those changes to propagate. If it seems like a change is not taking effect, try navigating to `/admin/configuration` and clicking "Clear Cache."
 
 #### Why do production deployments fail when static optimization is enabled?
-> There have been reports ([Issue 184](https://github.com/sambecker/exif-photo-blog/issues/184#issuecomment-2629474045) + [185](https://github.com/sambecker/exif-photo-blog/issues/185#issuecomment-2629478570)) that having large photos (over 30MB), or a CDN, e.g., Cloudflare in front of Vercel, may destabilize static optimization.
+> There have been reports ([#184](https://github.com/sambecker/exif-photo-blog/issues/184#issuecomment-2629474045) + [#185](https://github.com/sambecker/exif-photo-blog/issues/185#issuecomment-2629478570)) that having large photos (over 30MB), or a CDN, e.g., Cloudflare in front of Vercel, may destabilize static optimization.
 
 #### Why don't my older photos look right?
 > As the template has evolved, EXIF fields (such as lenses) have been added, blur data is generated through a different method, and AI/privacy features have been added. In order to bring older photos up to date, either click the 'sync' button next to a photo or go to photo updates (`/admin/photos/updates`) to sync all photos that need updates.
@@ -351,7 +363,7 @@ Thank you ❤️ translators: [@sconetto](https://github.com/sconetto) (`pt-br`,
 > The default timeout for processing multiple uploads is 60 seconds (the limit for Hobby accounts). This can be extended to 5 minutes on Pro accounts by setting `maxDuration = 300` in `src/app/admin/uploads/page.tsx`.
 
 #### I've added my OpenAI key but can't seem to make it work. Why am I seeing connection errors?
-> You may need to pre-purchase credits before accessing the OpenAI API. See [Issue #110](https://github.com/sambecker/exif-photo-blog/issues/110) for discussion.
+> You may need to pre-purchase credits before accessing the OpenAI API. See [#110](https://github.com/sambecker/exif-photo-blog/issues/110) for discussion. If you've customized key permissions, make sure write access to the Responses API is enabled.
 
 #### How do I generate AI text for preexisting photos?
 > Once AI text generation is configured, photos missing text will show up in photo updates (`/admin/photos/updates`).
@@ -362,8 +374,8 @@ Thank you ❤️ translators: [@sconetto](https://github.com/sconetto) (`pt-br`,
 #### Can I work locally without access to an image storage provider?
 > At this time, an external storage provider is necessary in order to develop locally. If you have a strategy to propose which allows files to be locally uploaded and served to `next/image` in away that mirrors an external storage provider for debugging purposes, please open a PR.
 
-#### Can this template run in a docker image?
-> Possibly. See [Issue #116](https://github.com/sambecker/exif-photo-blog/issues/116) for discussion.
+#### Can this template be self-hosted?
+> Possibly. See [#116](https://github.com/sambecker/exif-photo-blog/issues/116) and [#132](https://github.com/sambecker/exif-photo-blog/issues/132) for discussion around image hosting and docker usage.
 
 #### Why am I seeing many merge conflicts when syncing my fork?
 > Previous versions of this template stored Next.js "App Router" files in `/src`, and app-level functionality in `/src/site`. If you've made customizations and are having difficulty merging updates, consider moving `/src/app` files to `/`, and renaming `src/site` to `/src/app`. Other structural changes include moving `tailwind.css` and `middleware.ts` to `/`. Additionally, it may be helpful to review [PR #195](https://github.com/sambecker/exif-photo-blog/pull/195) for an overview of the most significant changes.

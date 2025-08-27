@@ -2,22 +2,23 @@ import { parameterize } from '@/utility/string';
 import { PhotoSetCategory } from '../../category';
 import { Camera } from '@/camera';
 import { Lens } from '@/lens';
-import { APP_DEFAULT_SORT_BY, SortBy } from './sort';
+import { APP_DEFAULT_SORT_BY, SortBy } from '../sort';
 
 export const GENERATE_STATIC_PARAMS_LIMIT = 1000;
 export const PHOTO_DEFAULT_LIMIT = 100;
 
-const DB_PARAMETERIZE_REPLACEMENTS = [
-  [',', ''],
-  ['/', ''],
-  ['+', '-'],
-  [' ', '-'],
-];
+// These must mirror utility/string.ts parameterization
+const CHARACTERS_TO_REMOVE = [',', '/'];
+const CHARACTERS_TO_REPLACE = ['+', '&', '|', ' '];
 
 const parameterizeForDb = (field: string) =>
-  DB_PARAMETERIZE_REPLACEMENTS.reduce((acc, [from, to]) =>
-    `REPLACE(${acc}, '${from}', '${to}')`
-  , `LOWER(TRIM(${field}))`);
+  `REGEXP_REPLACE(
+    REGEXP_REPLACE(
+      LOWER(TRIM(${field})),
+      '[${CHARACTERS_TO_REMOVE.join('')}]', '', 'g'
+    ),
+    '[${CHARACTERS_TO_REPLACE.join('')}]', '-', 'g'
+  )`;
 
 export type PhotoQueryOptions = {
   sortBy?: SortBy
@@ -66,12 +67,12 @@ export const getWheresFromOptions = (
   let valuesIndex = initialValuesIndex;
 
   switch (hidden) {
-  case 'exclude':
-    wheres.push('hidden IS NOT TRUE');
-    break;
-  case 'only':
-    wheres.push('hidden IS TRUE');
-    break;
+    case 'exclude':
+      wheres.push('hidden IS NOT TRUE');
+      break;
+    case 'only':
+      wheres.push('hidden IS TRUE');
+      break;
   }
 
   if (excludeFromFeeds) {
@@ -102,9 +103,9 @@ export const getWheresFromOptions = (
     // Newest upload must be within past 2 weeks
     // eslint-disable-next-line max-len
     wheres.push('(SELECT MAX(created_at) FROM photos) >= (now() - INTERVAL \'14 days\')');
-    // Selects must be within 2 weeks of newest upload
+    // Selects must be within 1 week of newest upload
     // eslint-disable-next-line max-len
-    wheres.push('created_at >= (SELECT MAX(created_at) - INTERVAL \'14 days\' FROM photos)');
+    wheres.push('created_at >= (SELECT MAX(created_at) - INTERVAL \'7 days\' FROM photos)');
   }
   if (year) {
     wheres.push(`EXTRACT(YEAR FROM taken_at) = $${valuesIndex++}`);
@@ -161,22 +162,31 @@ export const getOrderByFromOptions = (options: PhotoQueryOptions) => {
   } = options;
 
   switch (sortBy) {
-  case 'takenAt':
-    return sortWithPriority
-      ? 'ORDER BY priority_order ASC, taken_at DESC'
-      : 'ORDER BY taken_at DESC';
-  case 'takenAtAsc':
-    return sortWithPriority
-      ? 'ORDER BY priority_order ASC, taken_at ASC'
-      : 'ORDER BY taken_at ASC';
-  case 'createdAt':
-    return sortWithPriority
-      ? 'ORDER BY priority_order ASC, created_at DESC'
-      : 'ORDER BY created_at DESC';
-  case 'createdAtAsc':
-    return sortWithPriority
-      ? 'ORDER BY priority_order ASC, created_at ASC'
-      : 'ORDER BY created_at ASC';
+    case 'takenAt':
+      return sortWithPriority
+        ? 'ORDER BY priority_order ASC, taken_at DESC'
+        : 'ORDER BY taken_at DESC';
+    case 'takenAtAsc':
+      return sortWithPriority
+        ? 'ORDER BY priority_order ASC, taken_at ASC'
+        : 'ORDER BY taken_at ASC';
+    case 'createdAt':
+      return sortWithPriority
+        ? 'ORDER BY priority_order ASC, created_at DESC'
+        : 'ORDER BY created_at DESC';
+    case 'createdAtAsc':
+      return sortWithPriority
+        ? 'ORDER BY priority_order ASC, created_at ASC'
+        : 'ORDER BY created_at ASC';
+      // Add date sort to account for photos with same color sort
+    case 'color':
+      return sortWithPriority
+        ? 'ORDER BY priority_order ASC, color_sort DESC, taken_at DESC'
+        : 'ORDER BY color_sort DESC, taken_at DESC';
+    case 'colorAsc':
+      return sortWithPriority
+        ? 'ORDER BY priority_order ASC, color_sort ASC, taken_at ASC'
+        : 'ORDER BY color_sort ASC, taken_at ASC';
   }
 };
 

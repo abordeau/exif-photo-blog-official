@@ -15,7 +15,7 @@ import AppGrid from '@/components/AppGrid';
 import ImageLarge from '@/components/image/ImageLarge';
 import { clsx } from 'clsx/lite';
 import Link from 'next/link';
-import { pathForFocalLength, pathForPhoto } from '@/app/paths';
+import { pathForFocalLength, pathForPhoto } from '@/app/path';
 import PhotoTags from '@/tag/PhotoTags';
 import ShareButton from '@/share/ShareButton';
 import DownloadButton from '@/components/DownloadButton';
@@ -35,7 +35,7 @@ import {
 import AdminPhotoMenu from '@/admin/AdminPhotoMenu';
 import { RevalidatePhoto } from './InfinitePhotoScroll';
 import { useCallback, useMemo, useRef } from 'react';
-import useVisible from '@/utility/useVisible';
+import useVisibility from '@/utility/useVisibility';
 import PhotoDate from './PhotoDate';
 import { useAppState } from '@/app/AppState';
 import { LuExpand } from 'react-icons/lu';
@@ -80,7 +80,6 @@ export default function PhotoLarge({
   shouldShareRecipe,
   shouldShareFocalLength,
   includeFavoriteInAdminMenu,
-  forceFallbackFade,
   onVisible,
   showAdminKeyCommands,
 }: {
@@ -111,7 +110,6 @@ export default function PhotoLarge({
   shouldShareRecipe?: boolean
   shouldShareFocalLength?: boolean
   includeFavoriteInAdminMenu?: boolean
-  forceFallbackFade?: boolean
   onVisible?: () => void
   showAdminKeyCommands?: boolean
 }) {
@@ -173,7 +171,7 @@ export default function PhotoLarge({
   const showRecipeContent = showRecipe && shouldShowRecipeDataForPhoto(photo);
   const showFilmContent = showFilm && shouldShowFilmDataForPhoto(photo);
 
-  useVisible({ ref, onVisible });
+  useVisibility({ ref, onVisible });
 
   const hasTitle =
     showTitle &&
@@ -234,7 +232,6 @@ export default function PhotoLarge({
           blurDataURL={photo.blurData}
           blurCompatibilityMode={doesPhotoNeedBlurCompatibility(photo)}
           priority={priority}
-          forceFallbackFade={forceFallbackFade}
         />
       </ZoomControls>
       <div className={clsx(
@@ -299,6 +296,7 @@ export default function PhotoLarge({
           {renderLargePhoto}
         </Link>}
       classNameSide="relative"
+      sideHiddenOnMobile={false}
       contentSide={
         <div className="md:absolute inset-0 -mt-1">
           <MaskedScroll className="sticky top-4 self-start">
@@ -341,7 +339,6 @@ export default function PhotoLarge({
                               lens={lens}
                               contrast="medium"
                               prefetch={prefetchRelatedLinks}
-                              shortText
                               countOnHover={lensCount}
                             />}
                         </div>}

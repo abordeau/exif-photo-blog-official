@@ -4,7 +4,6 @@ import ScoreCard from '@/components/ScoreCard';
 import ScoreCardRow from '@/components/ScoreCardRow';
 import { dateRangeForPhotos } from '@/photo';
 import { FaCircleInfo, FaRegCalendar } from 'react-icons/fa6';
-import { HiMiniArrowsUpDown } from 'react-icons/hi2';
 import { MdAspectRatio } from 'react-icons/md';
 import { PiWarningBold } from 'react-icons/pi';
 import { TbSparkles } from 'react-icons/tb';
@@ -28,7 +27,7 @@ import {
 import EnvVar from '@/components/EnvVar';
 import { IoSyncCircle } from 'react-icons/io5';
 import clsx from 'clsx/lite';
-import { PATH_ADMIN_PHOTOS_UPDATES } from '@/app/paths';
+import { PATH_ADMIN_PHOTOS_UPDATES } from '@/app/path';
 import { LiaBroomSolid } from 'react-icons/lia';
 import { IoMdGrid } from 'react-icons/io';
 import { RiSpeedMiniLine } from 'react-icons/ri';
@@ -117,7 +116,6 @@ export default function AdminAppInsightsClient({
     noConfiguredMeta,
     photosNeedSync,
     photoMatting,
-    camerasFirst,
     gridFirst,
     noStaticOptimization,
   } = insights;
@@ -385,23 +383,6 @@ export default function AdminAppInsightsClient({
                 />
               </>}
             />}
-            {(camerasFirst || debug) && <ScoreCardRow
-              icon={<HiMiniArrowsUpDown
-                size={17}
-                className="translate-x-[-1px]"
-              />}
-              content="Move cameras above tags in sidebar"
-              expandContent={<>
-                Now that you have more than a few tags, consider
-                showing cameras first in the sidebar by setting
-                {' '}
-                <EnvVar
-                  variable="NEXT_PUBLIC_CATEGORY_VISIBILITY"
-                  value="cameras, tags, recipes, films"
-                  trailingContent="."
-                />
-              </>}
-            />}
             {(gridFirst || debug) && <ScoreCardRow
               icon={<IoMdGrid size={18} className="translate-y-[-1px]" />}
               content="Grid homepage"
@@ -459,58 +440,58 @@ export default function AdminAppInsightsClient({
         />
         {CATEGORY_VISIBILITY.map(category => {
           switch (category) {
-          case 'cameras':
-            return <ScoreCardRow
-              key={category}
-              icon={<IconCamera
-                size={15}
-                className="translate-y-[0.5px]"
-              />}
-              content={pluralize(camerasCount, 'camera')}
-            />;
-          case 'lenses':
-            return <ScoreCardRow
-              key={category}
-              icon={<IconLens
-                size={15}
-                className="translate-y-[0.5px]"
-              />}
-              content={pluralize(lensesCount, 'lens', 'lenses')}
-            />;
-          case 'tags':
-            return <ScoreCardRow
-              key={category}
-              icon={<IconTag
-                size={15}
-                className="translate-x-[1px] translate-y-[1px]"
-              />}
-              content={pluralize(tagsCount, 'tag')}
-            />;
-          case 'recipes':
-            return recipesCount > 0
-              ? <ScoreCardRow
+            case 'cameras':
+              return <ScoreCardRow
                 key={category}
-                icon={<IconRecipe
-                  size={18}
-                  className="translate-x-[0.5px] translate-y-[-0.5px]"
+                icon={<IconCamera
+                  size={15}
+                  className="translate-y-[0.5px]"
                 />}
-                content={pluralize(recipesCount, 'recipe')}
-              />
-              : null;
-          case 'films':
-            return filmsCount > 0
-              ? <ScoreCardRow
+                content={pluralize(camerasCount, 'camera')}
+              />;
+            case 'lenses':
+              return <ScoreCardRow
                 key={category}
-                icon={<IconFilm size={15} />}
-                content={pluralize(filmsCount, 'film')}
-              />
-              : null;
-          case 'focal-lengths':
-            return <ScoreCardRow
-              key={category}
-              icon={<IconFocalLength size={14} />}
-              content={pluralize(focalLengthsCount, 'focal length')}
-            />;
+                icon={<IconLens
+                  size={15}
+                  className="translate-y-[0.5px]"
+                />}
+                content={pluralize(lensesCount, 'lens', 'lenses')}
+              />;
+            case 'tags':
+              return <ScoreCardRow
+                key={category}
+                icon={<IconTag
+                  size={15}
+                  className="translate-x-[1px] translate-y-[1px]"
+                />}
+                content={pluralize(tagsCount, 'tag')}
+              />;
+            case 'recipes':
+              return recipesCount > 0
+                ? <ScoreCardRow
+                  key={category}
+                  icon={<IconRecipe
+                    size={18}
+                    className="translate-x-[0.5px] translate-y-[-0.5px]"
+                  />}
+                  content={pluralize(recipesCount, 'recipe')}
+                />
+                : null;
+            case 'films':
+              return filmsCount > 0
+                ? <ScoreCardRow
+                  key={category}
+                  icon={<IconFilm size={15} />}
+                  content={pluralize(filmsCount, 'film')}
+                />
+                : null;
+            case 'focal-lengths':
+              return <ScoreCardRow
+                key={category}
+                icon={<IconFocalLength size={14} />}
+                content={pluralize(focalLengthsCount, 'focal length')}
+              />;
           }
         })}
         {descriptionWithSpaces && <ScoreCardRow

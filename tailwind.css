@@ -242,6 +242,7 @@ html {
       bg-main
       border-gray-200 dark:border-gray-700
       font-mono text-base leading-tight
+      placeholder:text-extra-dim
   }
   input[type=text], input[type=email], input[type=password], select, textarea {
     @apply
@@ -289,7 +290,7 @@ html {
   }
   .error {
     @apply
-      border-red-500 dark:border-red-400
+      outline-2 outline-red-500! dark:outline-red-400!
   }
   button, .button {
     @apply

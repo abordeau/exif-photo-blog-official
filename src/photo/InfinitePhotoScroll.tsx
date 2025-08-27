@@ -15,9 +15,9 @@ import { Photo } from '.';
 import { PhotoSetCategory } from '../category';
 import { clsx } from 'clsx/lite';
 import { useAppState } from '@/app/AppState';
-import useVisible from '@/utility/useVisible';
+import useVisibility from '@/utility/useVisibility';
 import { ADMIN_DB_OPTIMIZE_ENABLED } from '@/app/config';
-import { SortBy } from './db/sort';
+import { SortBy } from './sort';
 import { SWR_KEYS } from '@/swr';
 
 const SIZE_KEY_SEPARATOR = '__';
@@ -150,7 +150,7 @@ export default function InfinitePhotoScroll({
     },
   } as any), [data, mutate]);
 
-  useVisible({ ref: buttonContainerRef, onVisible: () => {
+  useVisibility({ ref: buttonContainerRef, onVisible: () => {
     if (ADMIN_DB_OPTIMIZE_ENABLED && size === 0) {
       advance();
     }
@@ -159,6 +159,7 @@ export default function InfinitePhotoScroll({
   const renderMoreButton = () =>
     <div ref={buttonContainerRef}>
       <button
+        type="button"
         onClick={() => error ? mutate() : advance()}
         disabled={isLoading || isValidating}
         className={clsx(
